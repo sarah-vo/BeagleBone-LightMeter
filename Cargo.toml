@@ -1,13 +1,16 @@
 [package]
-name = "asn2-redo"
+name = "BeagleBone-LightMeter"
 version = "0.1.0"
-edition = "2021"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[build]
+target = "armv7-unknown-linux-gnueabihf"
 
 
 [dependencies]
+ctrlc = { version = "3.2.5", features=["termination"] }
+signal-hook = "0.3.15"
 
 [build-dependencies]
 bindgen = "0.53.1"
