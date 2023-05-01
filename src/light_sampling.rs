@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::{fs, thread};
 use std::thread::{JoinHandle, sleep};
 use std::time::Duration;
@@ -13,10 +13,12 @@ const DIFFERENCE_THRESHOLD:f32 = 0.1;
 pub fn spawn_sampling_thread(
     history: Arc<Mutex<CircularBuffer<f32>>>,
     dialer:Arc<Mutex<usize>>,
-    dips: Arc<Mutex<usize>>
+    dips: Arc<Mutex<usize>>,
+    run_state: Arc<RwLock<bool>>
 ) -> JoinHandle<()>{
     thread::spawn(move||{
-        loop{
+        while *run_state.read().unwrap(){
+            sleep(Duration::from_millis(1));
             let mut history_lock = history.lock().unwrap();
 
             let mut light_meter_raw = fs::read_to_string(METER_DIR)
@@ -28,7 +30,7 @@ pub fn spawn_sampling_thread(
             history_lock.push(light_meter_voltage);
 
             let dialer_lock = dialer.lock().unwrap();
-            if history_lock.capacity != *dialer_lock{
+            if history_lock.capacity != *dialer_lock && *dialer_lock > 0{
                 history_lock.resize(*dialer_lock);
             }
             drop(dialer_lock);
@@ -36,10 +38,8 @@ pub fn spawn_sampling_thread(
             if !history_lock.is_empty(){
                 calculate_dips(dips.clone(), &mut history_lock);
             }
-
-            drop(history_lock);
-            sleep(Duration::from_millis(1));
         }
+        println!("Thread light exited");
 
     })
 }
@@ -59,20 +59,20 @@ fn calculate_dips(dips: Arc<Mutex<usize>>, history_lock: &mut MutexGuard<Circula
     *dips_lock = session_dips;
 }
 
-pub fn handle_dialer(dialer:Arc<Mutex<usize>>) -> JoinHandle<()>{
+pub fn handle_dialer(dialer:Arc<Mutex<usize>>, run_state: Arc<RwLock<bool>>) -> JoinHandle<()>{
     thread::spawn(move||{
-        loop{
+        while *run_state.read().unwrap() {
+            sleep(Duration::from_secs(1));
+
             let mut dialer_lock = dialer.lock().unwrap();
 
             let mut raw_dialer_value = fs::read_to_string(DIALER_DIR)
                 .expect("Failed to read path");
             raw_dialer_value.pop();
             let dialer_value:usize = raw_dialer_value.parse().expect("Failed to parse to number");
-            *dialer_lock = dialer_value + 1;
-
-            drop(dialer_lock);
-            sleep(Duration::from_secs(1));
+            if dialer_value != 0{ *dialer_lock = dialer_value + 1; }
         }
+        println!("Thread dialer exited");
     })
 }
 
