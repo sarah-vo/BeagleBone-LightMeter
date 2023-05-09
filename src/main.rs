@@ -22,7 +22,6 @@ fn main() {
     let dialer:Arc<Mutex<usize>> = Arc::new(Mutex::new(0));
     let dips:Arc<Mutex<usize>> = Arc::new(Mutex::new(0));
 
-    let (tx, rx) = channel();
     let state = run_state.clone();
     ctrlc::set_handler(move || {
         println!("Received");
@@ -31,7 +30,6 @@ fn main() {
         *mut_state = false;
         drop(mut_state);
 
-        tx.send(()).expect("Unable to send");
 
     })
         .expect("Error setting Ctrl-C handler");
